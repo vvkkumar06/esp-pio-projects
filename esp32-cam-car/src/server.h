@@ -13,3 +13,5 @@ extern const char *password;
 extern WebServer server;   
 extern WiFiClient streamClient;
 
+void connectWifi();
+

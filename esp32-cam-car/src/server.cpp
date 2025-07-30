@@ -6,9 +6,38 @@
 const char *ssid = "K-1003";
 const char *password = "Ashajha_123";
 
-WebServer server(80);   
+WebServer server(80);
 WiFiClient streamClient;
 
+TaskHandle_t streamTaskHandle = NULL;
+
+void connectWifi()
+{
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  unsigned long startAttemptTime = millis();
+  const unsigned long wifiTimeout = 15000;
+
+  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < wifiTimeout)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("\n✅ WiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+  else
+  {
+    Serial.println("\n❌ WiFi connection failed! Restarting...");
+    delay(1000);
+    ESP.restart();
+  }
+}
 
 void routes()
 {
@@ -93,14 +122,19 @@ void routes()
       Serial.print(" km/h → PWM: ");
       Serial.println(speedVal);
     }
-
+    
     // Respond with the real speed (km/h)
     server.send(200, "text/plain", String(speedKmph)); });
+  server.on("/whoami", []()
+            { server.send(200, "text/plain", "esp32scar"); });
 }
 
 void streamTask(void *pvParameters)
 {
-  WiFiClient client = streamClient;
+  WiFiClient client = *((WiFiClient *)pvParameters);
+  ((WiFiClient *)pvParameters)->~WiFiClient(); // Call destructor
+  free(pvParameters); // Free the malloc'ed memory
+
   String response = "HTTP/1.1 200 OK\r\n";
   response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   client.print(response);
@@ -116,7 +150,7 @@ void streamTask(void *pvParameters)
 
     if (fb->format != PIXFORMAT_JPEG)
     {
-      bool converted = frame2jpg(fb, 30, &jpg_buf, &jpg_len); // ✅ lower quality
+      bool converted = frame2jpg(fb, 80, &jpg_buf, &jpg_len);
       esp_camera_fb_return(fb);
       if (!converted)
         continue;
@@ -128,37 +162,42 @@ void streamTask(void *pvParameters)
     }
 
     client.printf("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", jpg_len);
-    client.write(jpg_buf, jpg_len);
+    size_t written = client.write(jpg_buf, jpg_len);
     client.print("\r\n");
 
     if (fb->format != PIXFORMAT_JPEG)
       free(jpg_buf);
 
-    frameCount++;
-    if (millis() - lastFpsPrint >= 1000)
-    {
-      Serial.printf("FPS: %d\n", frameCount);
-      frameCount = 0;
-      lastFpsPrint = millis();
-    }
+    if (written != jpg_len)
+      break; // Client disconnected
 
-    delay(1); // ✅ CPU relief + Wi-Fi throughput improvement
+    delay(1);
   }
-
-  streamClient.stop();
+  client.stop();
+  streamTaskHandle = NULL;
   vTaskDelete(NULL);
 }
 
-// Route handler to start stream
 void handleStream()
 {
-  streamClient = server.client();
+  // If a stream is already running, stop it
+  if (streamTaskHandle != NULL)
+  {
+    delay(100);
+    for (int i = 0; i < 50 && streamTaskHandle != NULL; ++i)
+      delay(10);
+  }
+
+  // Allocate memory for the client copy and use placement new
+  WiFiClient *clientCopy = (WiFiClient *)malloc(sizeof(WiFiClient));
+  new (clientCopy) WiFiClient(server.client()); // Placement new: copy-construct
+
   xTaskCreatePinnedToCore(
       streamTask,
       "streamTask",
       8192,
-      NULL,
+      clientCopy,
       1,
-      NULL,
-      1);
+      &streamTaskHandle,
+      0);
 }

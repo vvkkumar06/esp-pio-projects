@@ -1,10 +1,12 @@
-#include <ESPmDNS.h>
 #include "motor-controls.h"
 #include "camera-config.h"
 #include "server.h"
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 void setup()
 {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   Serial.begin(115200);
   delay(1000);
 
@@ -20,23 +22,7 @@ void setup()
   pinMode(breakLight, OUTPUT);
 
   stopCar();
-
-  Serial.println("Connecting to WiFi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected!");
-  Serial.println(WiFi.localIP());
-  if (!MDNS.begin("esp32scar"))
-  {
-    Serial.println("Error starting mDNS");
-    return;
-  }
-  Serial.println("mDNS responder started");
-
+  connectWifi();
   delay(3000);
   if (!startCamera())
   {
@@ -44,10 +30,8 @@ void setup()
     while (true)
       delay(1000);
   }
-  Serial.println("Connecting to Firebase...");
   routes();
   server.begin();
-  MDNS.addService("http", "tcp", 80);
   Serial.println("HTTP stream server started");
   // Serial.end();
 }
