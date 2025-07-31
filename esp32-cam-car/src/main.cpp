@@ -17,8 +17,8 @@ void setup()
   pinMode(in4, OUTPUT);
 
   pinMode(headLight, OUTPUT);
-  // pinMode(rightIndicator, OUTPUT);
-  // pinMode(leftIndicator, OUTPUT);
+  pinMode(rightIndicator, OUTPUT);
+  pinMode(leftIndicator, OUTPUT);
   pinMode(breakLight, OUTPUT);
 
   stopCar();
@@ -33,7 +33,7 @@ void setup()
   routes();
   server.begin();
   Serial.println("HTTP stream server started");
-  // Serial.end();
+  Serial.end();
 }
 
 void loop()
