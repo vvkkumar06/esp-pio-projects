@@ -9,3 +9,8 @@ in the development cycle.
 
 More information about PlatformIO Unit Testing:
 - https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+
+RUN command to install python
+~/.platformio/penv/Scripts/pip install python-dotenv
+
+Update secrets.h file
