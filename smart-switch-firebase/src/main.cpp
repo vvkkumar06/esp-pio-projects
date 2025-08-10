@@ -50,19 +50,20 @@ SwitchRelay switchRelays[] = {
     {"/switch_8", false}};
 #define WIFI_RESET_PIN D4
 uint8_t relayStates = 0b11111111; // All relays OFF (assuming active LOW relays)
-#define LATCH_PIN D1              // ST_CP
-#define CLOCK_PIN D2              // SH_CP
+#define CLOCK_PIN D1              // SH_CP
+#define LATCH_PIN D2              // ST_CP
 #define DATA_PIN D3               // DS
 
-#define OFFLINE_MODE D5
-#define ONLINE_MODE D6
+#define OFFLINE_MODE D7
+#define ONLINE_MODE D8
 FirebaseJsonData result;
 
 void setupRelayPins();
 void changeRelayState(const String &path, bool state);
-bool getTimeFromNTP();
+bool getTimeFromNTP(uint8_t maxRetries = 10);
 void updateShiftRegister(bool reset = false);
 void syncStatesToFirebase();
+
 // Declaration (prototype)
 uint32_t get_ntp_server_time();
 void setFirebaseTimeSafelyWithRetry(uint8_t maxRetries = 5);
@@ -200,7 +201,7 @@ void loop()
   else
   {
     indicateOffline();
-    Serial.println("App not ready, waiting for next loop...");
+    // Serial.println("App not ready, waiting for next loop...");
   }
 }
 
@@ -210,6 +211,11 @@ void setupRelayPins()
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(DATA_PIN, OUTPUT);
   updateShiftRegister(true); // Send initial relay states
+}
+void printRelayStates(uint8_t state) {
+  String binStr = String(state, BIN);
+  while (binStr.length() < 8) binStr = "0" + binStr;
+  Serial.println(binStr);
 }
 
 void changeRelayState(const String &path, bool newState)
@@ -246,21 +252,32 @@ void changeRelayState(const String &path, bool newState)
     switchRelays[relayIndex].currentState = newState;
     delay(100);
     Serial.printf("Switch_%d : %s\n", relayIndex + 1, newState ? "ON" : "OFF");
+    // printRelayStates(relayStates);
   }
   updateShiftRegister();
 }
-bool getTimeFromNTP()
+bool getTimeFromNTP(uint8_t maxRetries)
 {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   struct tm timeinfo;
+  int attempts = 0;
 
-  if (!getLocalTime(&timeinfo))
+  while (attempts < maxRetries)
   {
-    Serial.println("NTP getLocalTime failed");
-    return false;
+    if (getLocalTime(&timeinfo))
+    {
+      Serial.println("✅ NTP time acquired");
+      return true;
+    }
+    Serial.printf("❌ NTP attempt %d failed, retrying...\n", attempts + 1);
+    delay(1000);
+    attempts++;
   }
-  return true;
+
+  Serial.println("🚫 Failed to get NTP time after retries.");
+  return false;
 }
+
 void updateShiftRegister(bool reset)
 {
   digitalWrite(LATCH_PIN, LOW);
