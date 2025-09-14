@@ -54,15 +54,16 @@ bool startCamera()
     config.pin_reset = RESET_GPIO_NUM;
 
     config.xclk_freq_hz = 20000000;
-    config.pixel_format = PIXFORMAT_GRAYSCALE;
+    // config.pixel_format = PIXFORMAT_GRAYSCALE;
+    config.pixel_format = PIXFORMAT_JPEG;
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.grab_mode = CAMERA_GRAB_LATEST;
 
     if (psramFound())
     {
-        config.frame_size = FRAMESIZE_QVGA;
-        config.jpeg_quality = 12; // lower = faster
-        config.fb_count = 3;
+        config.frame_size = FRAMESIZE_VGA;
+        config.jpeg_quality = 15; // lower = faster
+        config.fb_count = 2;
     }
     else
     {

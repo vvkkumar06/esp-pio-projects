@@ -131,52 +131,56 @@ void routes()
 
 void streamTask(void *pvParameters)
 {
+  // Take ownership of the client pointer
   WiFiClient client = *((WiFiClient *)pvParameters);
-  ((WiFiClient *)pvParameters)->~WiFiClient(); // Call destructor
-  free(pvParameters); // Free the malloc'ed memory
+  delete (WiFiClient *)pvParameters;  // instead of manual destructor + free
 
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
-  client.print(response);
+  // HTTP multipart MJPEG response header
+  client.print(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n"
+    "Cache-Control: no-cache\r\n"
+    "Pragma: no-cache\r\n"
+    "\r\n"
+  );
 
   while (client.connected())
   {
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb)
+    {
+      delay(10);
       continue;
-
-    uint8_t *jpg_buf = nullptr;
-    size_t jpg_len = 0;
-
-    if (fb->format != PIXFORMAT_JPEG)
-    {
-      bool converted = frame2jpg(fb, 80, &jpg_buf, &jpg_len);
-      esp_camera_fb_return(fb);
-      if (!converted)
-        continue;
-    }
-    else
-    {
-      jpg_buf = fb->buf;
-      jpg_len = fb->len;
     }
 
-    client.printf("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", jpg_len);
-    size_t written = client.write(jpg_buf, jpg_len);
+    // With PIXFORMAT_JPEG we can send directly
+    client.printf(
+      "--frame\r\n"
+      "Content-Type: image/jpeg\r\n"
+      "Content-Length: %u\r\n\r\n",
+      fb->len
+    );
+
+    size_t written = client.write(fb->buf, fb->len);
     client.print("\r\n");
 
-    if (fb->format != PIXFORMAT_JPEG)
-      free(jpg_buf);
+    esp_camera_fb_return(fb);
 
-    if (written != jpg_len)
-      break; // Client disconnected
+    if (written != fb->len)
+    {
+      // Client disconnected / broken pipe
+      break;
+    }
 
+    // Tiny delay so we don’t starve WiFi task
     delay(1);
   }
+
   client.stop();
   streamTaskHandle = NULL;
   vTaskDelete(NULL);
 }
+
 
 void handleStream()
 {
