@@ -1,6 +1,6 @@
 {
   "name": "BeehiveMonitor",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "ESP32 library for monitoring beehives and sending data to Oracle APEX API.",
   "keywords": ["esp32", "beehive", "sensor", "monitoring"],
   "authors": [
@@ -10,8 +10,14 @@
       "url": "https://github.com/vvkkumar06"
     }
   ],
+  "headers": "BeehiveMonitor.h",
   "license": "MIT",
-  "frameworks": "arduino",
-  "platforms": "espressif32",
-  "headers": "BeehiveMonitor.h"
+  "frameworks": ["arduino"],
+  "dependencies": {
+    "arduino-libraries/ArduinoHttpClient": "^0.6.1",
+    "adafruit/DHT sensor library": "^1.4.6",
+    "bogde/HX711": "^0.7.5",
+    "mathieucarbou/TinyGSM": "^0.11.9",
+    "digitaldragon/SSLClient": "^1.3.2"
+  }
 }
