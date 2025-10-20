@@ -1,6 +1,6 @@
 {
   "name": "BeehiveMonitor",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "ESP32 library for monitoring beehives and sending data to Oracle APEX API.",
   "keywords": ["esp32", "beehive", "sensor", "monitoring"],
   "authors": [

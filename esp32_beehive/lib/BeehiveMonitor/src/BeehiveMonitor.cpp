@@ -30,10 +30,9 @@ void BeehiveMonitor::begin()
     pinMode(OFFLINE_LED, OUTPUT);
     pinMode(ONLINE_LED, OUTPUT);
     digitalWrite(OFFLINE_LED, HIGH);
-     digitalWrite(ONLINE_LED, LOW);
+    digitalWrite(ONLINE_LED, LOW);
     calibrateScale(2);
     initNVS();
-    scale.tare();                       // Reset zero
     scale.set_scale(loadCalibration()); // Adjust after calibration
     dht.begin();
     initTime();
@@ -226,20 +225,21 @@ String BeehiveMonitor::getCurrentTime()
 }
 void BeehiveMonitor::saveCalibration(float factor)
 {
-    prefs.begin("beehive", false); // namespace, RW mode
-    prefs.putFloat("scaleFactor", factor);
+    prefs.begin();
+    prefs.saveCalibration(factor);;
     prefs.end();
     Serial.println("✅ Calibration saved!");
 }
 
 float BeehiveMonitor::loadCalibration()
 {
-    prefs.begin("beehive", true);                      // read-only mode
-    float factor = prefs.getFloat("scaleFactor", 1.0); // default=1.0
+    prefs.begin();
+    float factor = prefs.readCalibration();
     prefs.end();
     Serial.printf("📥 Loaded calibration: %.2f\n", factor);
     return factor;
 }
+
 void BeehiveMonitor::calibrateScale(float knownWeightKg)
 {
     pinMode(calibPin, INPUT_PULLUP); // Calibration pin
@@ -248,7 +248,6 @@ void BeehiveMonitor::calibrateScale(float knownWeightKg)
     if (digitalRead(calibPin) == HIGH)
     {
         digitalWrite(CALIB_LED, HIGH); // LED ON during calibration
-        scale.tare();                  // zero with no weight
         Serial.println("Place the known weight on the scale...");
         delay(10000); // Give time to stabilize
 
@@ -256,7 +255,6 @@ void BeehiveMonitor::calibrateScale(float knownWeightKg)
         float factor = raw / knownWeightKg;
 
         scale.set_scale(factor); // set calibration factor
-        scale.tare();            // reset zero again
         saveCalibration(factor); // persist calibration
         Serial.println("Calibration done! Factor: " + String(factor));
         digitalWrite(CALIB_LED, LOW); // LED OFF after calibratio
@@ -265,12 +263,12 @@ void BeehiveMonitor::calibrateScale(float knownWeightKg)
     {
         Serial.println("📥 Loading stored calibration...");
         scale.set_scale(loadCalibration());
-        scale.tare();
     }
 }
 
-void BeehiveMonitor::initializeModem(const char *apn)
+void BeehiveMonitor::initializeModem()
 {
+    const char* apn = prefs.readAPN().c_str();
     SerialMon.println("Initializing modem...");
     if (!modem.init() || !modem.restart())
     {
@@ -290,7 +288,8 @@ void BeehiveMonitor::initializeModem(const char *apn)
         ESP.restart();
         return;
     }
-
+    SerialMon.print("Using GPRS APN: ");
+    SerialMon.println(apn);
     SerialMon.print("Connecting to GPRS...");
     if (!modem.gprsConnect(apn, "", ""))
     {

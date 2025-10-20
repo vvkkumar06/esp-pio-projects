@@ -9,8 +9,8 @@
 #include "HX711.h"
 #include "time.h"
 #include "sys/time.h"
-#include <Preferences.h>
 #include "nvs_flash.h"
+#include "BeehivePreferences.h"
 
 #define SerialAT Serial1
 #define SerialMon Serial
@@ -30,7 +30,7 @@ public:
 
   void calibrateScale(float knownWeightKg);
 
-  void initializeModem(const char *apn);
+  void initializeModem();
 
 private:
   DHT dht;
@@ -56,12 +56,12 @@ private:
   const int daylightOffset_sec = 0; // No daylight saving in India
   float loadCalibration();
   void saveCalibration(float factor);
-  Preferences prefs;
   static void initNVS();
   const int calibPin = 4; // Pin to trigger calibration mode
   const int CALIB_LED = 21; // Onboard LED to indicate calibration mode
   const int ONLINE_LED = 22;
   const int OFFLINE_LED = 23;
+  BeehivePreferences prefs;
 };
 
 #endif // BEEHIVEMONITOR_H
